@@ -1,0 +1,113 @@
+# MNIST ile MLP Tabanlı El Yazısı Rakam Tanıma
+
+**Öğrenci:** Can Zenginel
+**Öğrenci No:** 269797015
+
+Bu çalışmada MNIST veri seti kullanılarak bir Multi-Layer Perceptron (MLP) modeli geliştirilmiş, model sıfırdan eğitilmiş ve performansı değerlendirilmiştir. Ardından eğitilen model, el yazısıyla yazılan okul numarası üzerinde denenmiştir. CNN ve hazır eğitilmiş model kullanılmamıştır. Çalışmada PyTorch kütüphanesi tercih edilmiştir.
+
+## Repo İçeriği
+
+| Dosya / Klasör | Açıklama |
+|---|---|
+| `mnist_mlp.ipynb` | Tüm kod ve çıktılar (veri hazırlama, eğitim, test, el yazısı) |
+| `requirements.txt` | Gerekli kütüphaneler |
+| `images/deney1_egriler.png` | Loss ve accuracy grafikleri |
+| `images/el_yazisi_sonuc.png` | El yazısı tahmin sonuçları |
+| `images/ham_fotograf.jpg` | Okul numarasının orijinal fotoğrafı |
+| `el_yazisi/` | MNIST formatına dönüştürülmüş 18 adet 28x28 rakam görüntüsü |
+| `mlp_deney1.pt` | Eğitilmiş model ağırlıkları |
+
+Kodun çalıştırılması için notebook'un Google Colab'de açılması ve hücrelerin sırayla çalıştırılması yeterlidir. El yazısı bölümü için fotoğrafın `/content/` altına yüklenmesi gerekmektedir.
+
+## 1. Veri Seti ve Bölünme
+
+MNIST, 28x28 boyutunda gri seviyeli ve 10 sınıflı (0-9) el yazısı rakamlardan oluşmaktadır. Veri seti aşağıdaki şekilde bölünmüştür:
+
+| Küme | Örnek sayısı | Kaynak |
+|---|---|---|
+| Train | 54.000 | MNIST eğitim setinin %90'ı (rastgele, seed=42) |
+| Validation | 6.000 | MNIST eğitim setinin %10'u |
+| Test | 10.000 | MNIST test seti |
+
+Test seti model geliştirme sürecinde kullanılmamış, yalnızca eğitim tamamlandıktan sonra bir kez ölçülmüştür. Piksel değerleri `[0,1]` aralığına çekilmiş ve MNIST ortalaması ile standart sapması kullanılarak normalize edilmiştir.
+
+## 2. Deney 1: Temel MLP
+
+### Model ve Hiperparametreler
+
+| Parametre | Değer |
+|---|---|
+| Mimari | 784 → 256 → 128 → 10 (2 hidden layer) |
+| Aktivasyon | ReLU |
+| Loss | CrossEntropyLoss |
+| Optimizer | Adam |
+| Learning rate | 0.001 |
+| Batch size | 64 |
+| Epoch | 15 |
+| Normalizasyon | mean = 0.1307, std = 0.3081 |
+| Seed | 42 |
+| Cihaz | CPU |
+
+### Sonuçlar
+
+| Metrik | Değer |
+|---|---|
+| Training loss | 0.0122 |
+| Validation loss | 0.1184 |
+| Training accuracy | %99.61 |
+| Validation accuracy | %97.62 |
+| Test loss | 0.1169 |
+| Test accuracy | %97.84 |
+| Eğitim süresi | 341.0 sn |
+
+![Loss ve accuracy grafikleri](images/deney1_egriler.png)
+
+### Yorum
+
+- Eğitim boyunca training loss düzenli olarak düşmüştür (0.105 → 0.012). Validation loss ise 4-5. epoch civarında en düşük seviyeye (~0.080) ulaşmış, sonrasında dalgalanarak yükselmiştir (son epoch 0.118, 14. epoch 0.153).
+- Training accuracy %99.6'ya ulaşırken validation accuracy yaklaşık %97.5-97.7 seviyesinde sabit kalmıştır. Bu durum overfitting olarak yorumlanmıştır: model eğitim verisini ezberlemeye başlamış, doğruluk artmamış, ancak validation örneklerinde daha emin yanlışlar yapıldığı için loss yükselmiştir. Validation loss'a göre erken durdurma uygulansaydı 4-5. epoch civarında daha iyi bir sonuç elde edilebilirdi.
+- Test accuracy (%97.84) ile validation accuracy (%97.62) birbirine çok yakın bulunmuştur. Bu durum, validation setinin test performansı için güvenilir bir gösterge olduğunu ortaya koymuştur.
+- Eğitim sırasında görülen ani dalgalanmaların, Adam optimizer ile mini-batch eğitimde beklenen bir durum olduğu değerlendirilmiştir.
+
+## 3. Kendi El Yazısı ile Test
+
+Okul numarası (**269797015**) kâğıda iki kez yazılmıştır: üst satır küçük, alt satır büyük. Toplam 18 rakam elde edilmiştir.
+
+### MNIST formatına dönüştürme
+
+1. Fotoğraf gri tonlamaya çevrilmiştir.
+2. Arka plan tahmin edilerek mürekkep ayrılmış, kâğıdın arkasından görünen silik izler eşik değeriyle elenmiştir.
+3. Her rakam otomatik olarak bulunup kırpılmıştır (18/18 rakam tespit edilmiştir).
+4. Renkler MNIST ile uyumlu hale getirilmiştir: siyah zemin, beyaz rakam.
+5. Kalem çizgileri MNIST çizgilerinden ince olduğu için çizgi kalınlaştırılmıştır.
+6. Rakamların uzun kenarı 20 piksele küçültülmüş, 28x28 tuvalin ortasına yerleştirilmiş ve ağırlık merkezi ortalanmıştır.
+7. Eğitimde kullanılan normalizasyon (mean 0.1307, std 0.3081) aynen uygulanmıştır.
+
+### Sonuçlar
+
+| Satır | Doğru / Toplam |
+|---|---|
+| Üst satır (küçük yazım) | 8 / 9 |
+| Alt satır (büyük yazım) | 8 / 9 |
+| **Toplam** | **16 / 18 = %88.89** |
+
+![El yazısı sonuçları](images/el_yazisi_sonuc.png)
+
+Model yalnızca iki rakamda hata yapmıştır. Her iki hata da 9 rakamının 3 olarak tahmin edilmesidir:
+
+| Konum | Gerçek | Tahmin | Güven |
+|---|---|---|---|
+| Üst satır, 3. rakam | 9 | 3 | %72 |
+| Alt satır, 5. rakam | 9 | 3 | %98 |
+
+### Değerlendirme (Distribution Shift / Genelleme)
+
+- MNIST test doğruluğu %97.84 iken el yazısı doğruluğu %88.89'a düşmüştür. Yaklaşık 9 puanlık bu fark, eğitim verisi ile gerçek dünya verisi arasındaki dağılım farkının (distribution shift) bir göstergesi olarak değerlendirilmiştir.
+- Hatalı tahmin edilen 9'larda kuyruğun aşağıda sola doğru kıvrılarak açık bir kanca oluşturduğu görülmüştür. Bu şeklin 3 rakamının alt yayına benzediği ve MNIST'te nadir rastlanan bir yazım biçimi olduğu düşünülmüştür. Aynı rakamın daha düz yazılmış hali (alt satırdaki ilk 9) %99 güvenle doğru tanınmıştır. Dolayısıyla hatanın, modelin 9 rakamını bilmemesinden çok yazım biçimine duyarlı olmasından kaynaklandığı sonucuna varılmıştır.
+- Alt satırdaki yanlış tahminin %98 güvenle yapıldığı görülmüştür. Bu durum, softmax olasılığının doğruluk garantisi vermediğini ve modelin eğitim dağılımı dışındaki girdilerde de yüksek güven üretebildiğini göstermiştir.
+- 0, 1, 2, 5, 6 ve 7 rakamları her iki satırda da doğru tanınmıştır. Kalem çizgisi MNIST'ten ince olmasına rağmen uygulanan ön işleme adımlarının (kalınlaştırma, ortalama, ölçekleme) bu farkı büyük ölçüde giderdiği gözlenmiştir.
+- **Sınırlılık:** Test kümesi yalnızca 18 görüntüden oluşmaktadır. Tek bir rakamın etkisi yaklaşık 5.6 puan olduğundan %88.89 değeri kesin bir ölçü değil, kaba bir gösterge olarak ele alınmalıdır. Ayrıca iki satır aynı numaranın tekrar yazılmasıyla elde edildiği için örnekler birbirinden bağımsız değildir.
+
+## 4. Genel Değerlendirme
+
+Geliştirilen MLP modeli MNIST test setinde yaklaşık %97.8 doğruluğa ulaşmıştır. Eğitim sürecinde belirgin bir overfitting gözlenmiş, dropout, daha az epoch veya erken durdurma gibi yöntemlerin uygulanmasıyla bu durumun iyileştirilebileceği değerlendirilmiştir. El yazısı testinde doğruluğun düşmesi, modelin eğitim dağılımına bağımlı olduğunu göstermiştir. MLP piksel konumlarına duyarlı olduğu için farklı yazım biçimleri ve ön işleme farkları performansı etkileyebilmektedir. Uzamsal değişimlere karşı daha dayanıklı olan CNN mimarileri bu ödevin kapsamı dışında bırakılmıştır.
